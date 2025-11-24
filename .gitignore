@@ -9,6 +9,9 @@
 *.h
 *.dylib
 
+# intellij
+.idea
+
 # Test binary, built with `go test -c`
 *.test
 
@@ -26,6 +29,7 @@ go.work.sum
 .env
 
 ## Dart example
+/examples/dart/.dart_tool/
 .dart_tool
 *.snapshot
 
