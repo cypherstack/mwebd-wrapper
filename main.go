@@ -14,6 +14,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/ltcmweb/mwebd"
 	"github.com/ltcmweb/mwebd/proto"
@@ -65,11 +66,33 @@ func StartServer(id C.uintptr_t, port C.int) C.int {
 
 //export StopServer
 func StopServer(id C.uintptr_t) {
-	server := serverRegistry[uintptr(id)]
-	server.Stop()
 	serverRegistryMu.Lock()
+	server, exists := serverRegistry[uintptr(id)]
+	if !exists {
+		serverRegistryMu.Unlock()
+		return // Server was already stopped.
+	}
 	delete(serverRegistry, uintptr(id))
 	serverRegistryMu.Unlock()
+
+	// Implement timeout-based shutdown to prevent hanging.
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		server.Stop()
+	}()
+
+	// Wait for graceful shutdown with timeout.
+	select {
+	case <-done:
+		// Graceful shutdown completed.
+		return
+	case <-time.After(2 * time.Second):
+		// Timeout reached - force return to prevent FFI hanging.
+		// The server goroutines will be cleaned up when the process exits.
+		fmt.Printf("Warning: Server stop timed out after 2 seconds, continuing with FFI return\n")
+		return
+	}
 }
 
 //export Status
